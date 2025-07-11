@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ESP32 Health Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #eef3f8, #f5f9ff);
+      font-family: 'Rubik', sans-serif;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 200px;
+      background: #fff;
+      border-right: 1px solid #ddd;
+      padding: 20px;
+    }
+    .sidebar h4 {
+      color: #ff9900;
+      font-weight: 600;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    .sidebar ul li {
+      margin: 15px 0;
+    }
+    .sidebar ul li a {
+      text-decoration: none;
+      color: #333;
+    }
+    .main {
+      margin-left: 220px;
+      padding: 20px;
+    }
+    .glass-card {
+      background: #ffffffee;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    }
+    canvas {
+      max-width: 100%;
+      background: #fdfdfd;
+      border-radius: 10px;
+    }
+    .btn-export {
+      background: #ff9900;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <h4>Dashboard</h4>
+    <ul>
+      <li><a href="#"><i class='bx bx-heart'></i> Heart</a></li>
+      <li><a href="#"><i class='bx bx-droplet'></i> SpO₂</a></li>
+      <li><a href="#"><i class='bx bx-thermometer'></i> Temp</a></li>
+      <li><a href="#" onclick="exportCSV()"><i class='bx bx-download'></i> Export CSV</a></li>
+    </ul>
+  </div>
+
+  <div class="main">
+    <h2 class="text-center mb-4">ESP32 Health Dashboard</h2>
+
+    <div class="row g-4 mb-4 text-center">
+      <div class="col-md-4 col-12">
+        <div class="glass-card">
+          <h5>Heart Rate</h5>
+          <h2 id="bpm">--</h2>
+          <p>BPM</p>
+        </div>
+      </div>
+      <div class="col-md-4 col-12">
+        <div class="glass-card">
+          <h5>SpO₂</h5>
+          <h2 id="spo2">--</h2>
+          <p>%</p>
+        </div>
+      </div>
+      <div class="col-md-4 col-12">
+        <div class="glass-card">
+          <h5>Temperature</h5>
+          <h2 id="temp">--</h2>
+          <p>°C</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-6 col-12">
+        <div class="glass-card">
+          <h5 class="text-center">Heart Rate Graph</h5>
+          <canvas id="bpmChart"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-6 col-12">
+        <div class="glass-card">
+          <h5 class="text-center">SpO₂ Graph</h5>
+          <canvas id="spo2Chart"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-6 col-12">
+        <div class="glass-card">
+          <h5 class="text-center">Temperature Graph</h5>
+          <canvas id="tempChart"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-6 col-12">
+        <div class="glass-card text-center">
+          <h5>Calendar</h5>
+          <p id="todayDate"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBGMQCCNPoDd5tZ8sQcM_TU2ALTa0mk-eU",
+    authDomain: "esp32-health-monitor-gjust.firebaseapp.com",
+    databaseURL: "https://esp32-health-monitor-gjust-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "esp32-health-monitor-gjust"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  document.getElementById('todayDate').innerText = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: 'full' });
+
+  const bpmChart = new Chart(document.getElementById('bpmChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'BPM', data: [], borderColor: '#ff4d4d', backgroundColor: 'rgba(255,77,77,0.3)', fill: true }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
+
+  const spo2Chart = new Chart(document.getElementById('spo2Chart').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'SpO₂', data: [], borderColor: '#00bfff', backgroundColor: 'rgba(0,191,255,0.3)', fill: true }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
+
+  const tempChart = new Chart(document.getElementById('tempChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#ffa500', backgroundColor: 'rgba(255,165,0,0.3)', fill: true }] },
+    options: { responsive: true, scales: { y: { beginAtZero: false } } }
+  });
+
+  let lastCSV = [];
+
+  function updateLiveData() {
+    db.ref('/bpm').on('value', snap => {
+      const val = snap.val();
+      document.getElementById('bpm').innerText = (val !== null) ? val : '--';
+    });
+    db.ref('/spo2').on('value', snap => {
+      const val = snap.val();
+      document.getElementById('spo2').innerText = (val !== null) ? val : '--';
+    });
+    db.ref('/body_temp').on('value', snap => {
+      const val = snap.val();
+      document.getElementById('temp').innerText = (val !== null) ? val : '--';
+    });
+  }
+
+  function formatISTTime(ts) {
+    return new Date(Number(ts)).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+  }
+
+  function updateGraphs() {
+    const bpmRef = db.ref('/logs_bpm');
+    const spo2Ref = db.ref('/logs_spo2');
+    const tempRef = db.ref('/logs_temp');
+
+    const bpmArr = [], bpmLabels = [];
+    const spo2Arr = [], spo2Labels = [];
+    const tempArr = [], tempLabels = [];
+
+    lastCSV = [];
+
+    bpmRef.once('value').then(snapshot => {
+      const data = snapshot.val();
+      if (data) {
+        Object.keys(data).forEach(ts => {
+          const time = formatISTTime(ts);
+          bpmLabels.push(time);
+          bpmArr.push(data[ts]);
+        });
+        bpmChart.data.labels = bpmLabels;
+        bpmChart.data.datasets[0].data = bpmArr;
+        bpmChart.update();
+      }
+    });
+
+    spo2Ref.once('value').then(snapshot => {
+      const data = snapshot.val();
+      if (data) {
+        Object.keys(data).forEach(ts => {
+          const time = formatISTTime(ts);
+          spo2Labels.push(time);
+          spo2Arr.push(data[ts]);
+        });
+        spo2Chart.data.labels = spo2Labels;
+        spo2Chart.data.datasets[0].data = spo2Arr;
+        spo2Chart.update();
+      }
+    });
+
+    tempRef.once('value').then(snapshot => {
+      const data = snapshot.val();
+      if (data) {
+        Object.keys(data).forEach(ts => {
+          const time = formatISTTime(ts);
+          tempLabels.push(time);
+          tempArr.push(data[ts]);
+        });
+        tempChart.data.labels = tempLabels;
+        tempChart.data.datasets[0].data = tempArr;
+        tempChart.update();
+      }
+    });
+  }
+
+  function exportCSV() {
+    let csv = 'Time (IST),BPM,SpO2,Temp\n';
+
+    Promise.all([
+      db.ref('/logs_bpm').once('value'),
+      db.ref('/logs_spo2').once('value'),
+      db.ref('/logs_temp').once('value')
+    ]).then(([bpmSnap, spo2Snap, tempSnap]) => {
+      const bpmData = bpmSnap.val() || {};
+      const spo2Data = spo2Snap.val() || {};
+      const tempData = tempSnap.val() || {};
+
+      const allTimestamps = new Set([
+        ...Object.keys(bpmData),
+        ...Object.keys(spo2Data),
+        ...Object.keys(tempData)
+      ]);
+
+      Array.from(allTimestamps).sort().forEach(ts => {
+        const timeStr = formatISTTime(ts);
+        const bpm = bpmData[ts] || '';
+        const spo2 = spo2Data[ts] || '';
+        const temp = tempData[ts] || '';
+        csv += `${timeStr},${bpm},${spo2},${temp}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'esp32_health_data.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  updateLiveData();
+  updateGraphs();
+</script>
+
+</body>
+</html>
