@@ -34,4 +34,10 @@ A real-time health monitoring system using **ESP32**, **MAX30102**, and **DS18B2
 The project is deployed using GitHub Pages.  
 🔗 **[View Live Dashboard](https://sharmavinitstnl.github.io/ESPhealthdashboard/)**  
 
+## ✍️ Author
 
+**Vinit Sharma**  
+**Electronics & Communication Engineering**  
+**Guru Jambheshwar University of Science & Technology, Hisar**  
+🔗 [LinkedIn](https://linkedin.com/in/sharmavinitstnl)  
+🌐 [Paper Curls](https://papercurls.blogspot.com)
