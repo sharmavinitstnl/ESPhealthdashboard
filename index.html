@@ -14,6 +14,11 @@
     body {
       background: linear-gradient(to right, #eef3f8, #f5f9ff);
       font-family: 'Rubik', sans-serif;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.dark {
+      background: #121212;
+      color: #f1f1f1;
     }
     .sidebar {
       position: fixed;
@@ -24,6 +29,11 @@
       background: #fff;
       border-right: 1px solid #ddd;
       padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .dark .sidebar {
+      background: #1f1f1f;
+      border-color: #444;
     }
     .sidebar h4 {
       color: #ff9900;
@@ -40,6 +50,9 @@
       text-decoration: none;
       color: #333;
     }
+    .dark .sidebar ul li a {
+      color: #ccc;
+    }
     .main {
       margin-left: 220px;
       padding: 20px;
@@ -49,11 +62,19 @@
       border-radius: 20px;
       padding: 20px;
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+      transition: background 0.3s, color 0.3s;
+    }
+    .dark .glass-card {
+      background: #1e1e1ecc;
+      color: #f1f1f1;
     }
     canvas {
       max-width: 100%;
       background: #fdfdfd;
       border-radius: 10px;
+    }
+    .dark canvas {
+      background: #2c2c2c;
     }
     .btn-export {
       background: #ff9900;
@@ -61,6 +82,26 @@
       border: none;
       padding: 8px 16px;
       margin-top: 10px;
+    }
+    .toggle-mode {
+      cursor: pointer;
+      color: #ff9900;
+      font-weight: bold;
+      display: block;
+      margin-top: 30px;
+    }
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+      }
+      .main {
+        margin-left: 0;
+        padding: 10px;
+      }
     }
   </style>
 </head>
@@ -74,6 +115,7 @@
       <li><a href="#"><i class='bx bx-thermometer'></i> Temp</a></li>
       <li><a href="#" onclick="exportCSV()"><i class='bx bx-download'></i> Export CSV</a></li>
     </ul>
+    <span class="toggle-mode" onclick="toggleDarkMode()">🌙 Dark/Light Mode</span>
   </div>
 
   <div class="main">
@@ -149,76 +191,25 @@
 
   const bpmChart = new Chart(document.getElementById('bpmChart').getContext('2d'), {
     type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'BPM',
-        data: [],
-        borderColor: '#ff4d4d',
-        backgroundColor: 'rgba(255,77,77,0.3)',
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true
-        }
-      }
-    }
+    data: { labels: [], datasets: [{ label: 'BPM', data: [], borderColor: '#ff4d4d', backgroundColor: 'rgba(255,77,77,0.3)', fill: true }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
   });
 
   const spo2Chart = new Chart(document.getElementById('spo2Chart').getContext('2d'), {
     type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'SpO₂',
-        data: [],
-        borderColor: '#00bfff',
-        backgroundColor: 'rgba(0,191,255,0.3)',
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true
-        }
-      }
-    }
+    data: { labels: [], datasets: [{ label: 'SpO₂', data: [], borderColor: '#00bfff', backgroundColor: 'rgba(0,191,255,0.3)', fill: true }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
   });
 
   const tempChart = new Chart(document.getElementById('tempChart').getContext('2d'), {
     type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Temp',
-        data: [],
-        borderColor: '#ffa500',
-        backgroundColor: 'rgba(255,165,0,0.3)',
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: false
-        }
-      }
-    }
+    data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#ffa500', backgroundColor: 'rgba(255,165,0,0.3)', fill: true }] },
+    options: { responsive: true, scales: { y: { beginAtZero: false } } }
   });
 
   function formatISTTime(ts) {
     return new Date(Number(ts) * 1000).toLocaleTimeString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+      timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit'
     });
   }
 
@@ -227,63 +218,28 @@
       const val = snap.val();
       document.getElementById('bpm').innerText = val !== null ? val : '--';
     });
-
     db.ref('/spo2').on('value', snap => {
       const val = snap.val();
       document.getElementById('spo2').innerText = val !== null ? val : '--';
     });
-
     db.ref('/body_temp').on('value', snap => {
       const val = snap.val();
       document.getElementById('temp').innerText = val !== null ? val : '--';
     });
   }
 
-  function updateGraphs() {
-    const bpmRef = db.ref('/logs_bpm');
-    const spo2Ref = db.ref('/logs_spo2');
-    const tempRef = db.ref('/logs_temp');
-
-    bpmRef.once('value').then(snapshot => {
-      const data = snapshot.val();
-      const timestamps = Object.keys(data || {}).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
-
-      const labels = timestamps.map(ts => formatISTTime(ts));
-      const values = timestamps.map(ts => data[ts]);
-
-      bpmChart.data.labels = labels;
-      bpmChart.data.datasets[0].data = values;
-      bpmChart.update();
-    });
-
-    spo2Ref.once('value').then(snapshot => {
-      const data = snapshot.val();
-      const timestamps = Object.keys(data || {}).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
-
-      const labels = timestamps.map(ts => formatISTTime(ts));
-      const values = timestamps.map(ts => data[ts]);
-
-      spo2Chart.data.labels = labels;
-      spo2Chart.data.datasets[0].data = values;
-      spo2Chart.update();
-    });
-
-    tempRef.once('value').then(snapshot => {
-      const data = snapshot.val();
-      const timestamps = Object.keys(data || {}).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
-
-      const labels = timestamps.map(ts => formatISTTime(ts));
-      const values = timestamps.map(ts => data[ts]);
-
-      tempChart.data.labels = labels;
-      tempChart.data.datasets[0].data = values;
-      tempChart.update();
+  function realtimeGraph(chart, ref, labelFormatter) {
+    db.ref(ref).limitToLast(20).on('value', snapshot => {
+      const data = snapshot.val() || {};
+      const timestamps = Object.keys(data).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
+      chart.data.labels = timestamps.map(ts => labelFormatter(ts));
+      chart.data.datasets[0].data = timestamps.map(ts => data[ts]);
+      chart.update();
     });
   }
 
   function exportCSV() {
     let csv = 'Time (IST),BPM,SpO2,Temp\n';
-
     Promise.all([
       db.ref('/logs_bpm').once('value'),
       db.ref('/logs_spo2').once('value'),
@@ -292,13 +248,11 @@
       const bpmData = bpmSnap.val() || {};
       const spo2Data = spo2Snap.val() || {};
       const tempData = tempSnap.val() || {};
-
       const allTimestamps = Array.from(new Set([
         ...Object.keys(bpmData),
         ...Object.keys(spo2Data),
         ...Object.keys(tempData)
       ])).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
-
       allTimestamps.forEach(ts => {
         const time = formatISTTime(ts);
         const bpm = bpmData[ts] || '';
@@ -306,7 +260,6 @@
         const temp = tempData[ts] || '';
         csv += `${time},${bpm},${spo2},${temp}\n`;
       });
-
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -317,8 +270,14 @@
     });
   }
 
+  function toggleDarkMode() {
+    document.body.classList.toggle('dark');
+  }
+
   updateLiveData();
-  updateGraphs();
+  realtimeGraph(bpmChart, '/logs_bpm', formatISTTime);
+  realtimeGraph(spo2Chart, '/logs_spo2', formatISTTime);
+  realtimeGraph(tempChart, '/logs_temp', formatISTTime);
 </script>
 </body>
 </html>
