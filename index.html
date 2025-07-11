@@ -142,45 +142,101 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  document.getElementById('todayDate').innerText = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: 'full' });
+  document.getElementById('todayDate').innerText = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: 'full'
+  });
 
   const bpmChart = new Chart(document.getElementById('bpmChart').getContext('2d'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'BPM', data: [], borderColor: '#ff4d4d', backgroundColor: 'rgba(255,77,77,0.3)', fill: true }] },
-    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'BPM',
+        data: [],
+        borderColor: '#ff4d4d',
+        backgroundColor: 'rgba(255,77,77,0.3)',
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
   });
 
   const spo2Chart = new Chart(document.getElementById('spo2Chart').getContext('2d'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'SpO₂', data: [], borderColor: '#00bfff', backgroundColor: 'rgba(0,191,255,0.3)', fill: true }] },
-    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'SpO₂',
+        data: [],
+        borderColor: '#00bfff',
+        backgroundColor: 'rgba(0,191,255,0.3)',
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
   });
 
   const tempChart = new Chart(document.getElementById('tempChart').getContext('2d'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#ffa500', backgroundColor: 'rgba(255,165,0,0.3)', fill: true }] },
-    options: { responsive: true, scales: { y: { beginAtZero: false } } }
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Temp',
+        data: [],
+        borderColor: '#ffa500',
+        backgroundColor: 'rgba(255,165,0,0.3)',
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: false
+        }
+      }
+    }
   });
 
-  let lastCSV = [];
+  function formatISTTime(ts) {
+    return new Date(Number(ts) * 1000).toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
 
   function updateLiveData() {
     db.ref('/bpm').on('value', snap => {
       const val = snap.val();
-      document.getElementById('bpm').innerText = (val !== null) ? val : '--';
+      document.getElementById('bpm').innerText = val !== null ? val : '--';
     });
+
     db.ref('/spo2').on('value', snap => {
       const val = snap.val();
-      document.getElementById('spo2').innerText = (val !== null) ? val : '--';
+      document.getElementById('spo2').innerText = val !== null ? val : '--';
     });
+
     db.ref('/body_temp').on('value', snap => {
       const val = snap.val();
-      document.getElementById('temp').innerText = (val !== null) ? val : '--';
+      document.getElementById('temp').innerText = val !== null ? val : '--';
     });
-  }
-
-  function formatISTTime(ts) {
-    return new Date(Number(ts)).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
   }
 
   function updateGraphs() {
@@ -188,52 +244,40 @@
     const spo2Ref = db.ref('/logs_spo2');
     const tempRef = db.ref('/logs_temp');
 
-    const bpmArr = [], bpmLabels = [];
-    const spo2Arr = [], spo2Labels = [];
-    const tempArr = [], tempLabels = [];
-
-    lastCSV = [];
-
     bpmRef.once('value').then(snapshot => {
       const data = snapshot.val();
-      if (data) {
-        Object.keys(data).forEach(ts => {
-          const time = formatISTTime(ts);
-          bpmLabels.push(time);
-          bpmArr.push(data[ts]);
-        });
-        bpmChart.data.labels = bpmLabels;
-        bpmChart.data.datasets[0].data = bpmArr;
-        bpmChart.update();
-      }
+      const timestamps = Object.keys(data || {}).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
+
+      const labels = timestamps.map(ts => formatISTTime(ts));
+      const values = timestamps.map(ts => data[ts]);
+
+      bpmChart.data.labels = labels;
+      bpmChart.data.datasets[0].data = values;
+      bpmChart.update();
     });
 
     spo2Ref.once('value').then(snapshot => {
       const data = snapshot.val();
-      if (data) {
-        Object.keys(data).forEach(ts => {
-          const time = formatISTTime(ts);
-          spo2Labels.push(time);
-          spo2Arr.push(data[ts]);
-        });
-        spo2Chart.data.labels = spo2Labels;
-        spo2Chart.data.datasets[0].data = spo2Arr;
-        spo2Chart.update();
-      }
+      const timestamps = Object.keys(data || {}).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
+
+      const labels = timestamps.map(ts => formatISTTime(ts));
+      const values = timestamps.map(ts => data[ts]);
+
+      spo2Chart.data.labels = labels;
+      spo2Chart.data.datasets[0].data = values;
+      spo2Chart.update();
     });
 
     tempRef.once('value').then(snapshot => {
       const data = snapshot.val();
-      if (data) {
-        Object.keys(data).forEach(ts => {
-          const time = formatISTTime(ts);
-          tempLabels.push(time);
-          tempArr.push(data[ts]);
-        });
-        tempChart.data.labels = tempLabels;
-        tempChart.data.datasets[0].data = tempArr;
-        tempChart.update();
-      }
+      const timestamps = Object.keys(data || {}).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
+
+      const labels = timestamps.map(ts => formatISTTime(ts));
+      const values = timestamps.map(ts => data[ts]);
+
+      tempChart.data.labels = labels;
+      tempChart.data.datasets[0].data = values;
+      tempChart.update();
     });
   }
 
@@ -249,18 +293,18 @@
       const spo2Data = spo2Snap.val() || {};
       const tempData = tempSnap.val() || {};
 
-      const allTimestamps = new Set([
+      const allTimestamps = Array.from(new Set([
         ...Object.keys(bpmData),
         ...Object.keys(spo2Data),
         ...Object.keys(tempData)
-      ]);
+      ])).filter(ts => /^\d+$/.test(ts)).sort((a, b) => a - b);
 
-      Array.from(allTimestamps).sort().forEach(ts => {
-        const timeStr = formatISTTime(ts);
+      allTimestamps.forEach(ts => {
+        const time = formatISTTime(ts);
         const bpm = bpmData[ts] || '';
         const spo2 = spo2Data[ts] || '';
         const temp = tempData[ts] || '';
-        csv += `${timeStr},${bpm},${spo2},${temp}\n`;
+        csv += `${time},${bpm},${spo2},${temp}\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv' });
@@ -276,6 +320,5 @@
   updateLiveData();
   updateGraphs();
 </script>
-
 </body>
 </html>
