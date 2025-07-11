@@ -40,4 +40,4 @@ The project is deployed using GitHub Pages.
 **Electronics & Communication Engineering**  
 **Guru Jambheshwar University of Science & Technology, Hisar**  
 🔗 [LinkedIn](https://linkedin.com/in/sharmavinitstnl)  
-🌐 [Paper Curls](https://papercurls.blogspot.com)
+🌐 [Paper Curls](https://papercurlsbysavi.blogspot.com)
