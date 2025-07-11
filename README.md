@@ -35,6 +35,3 @@ The project is deployed using GitHub Pages.
 🔗 **[View Live Dashboard](https://sharmavinitstnl.github.io/ESPhealthdashboard/)**  
 
 
----
-
-## 📁 Project Structure
